@@ -1,0 +1,16 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjAsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCJ9",
+    "payload": "eyJkb21haW4iOiJwaXhlbGF0ZS1hcHAuZ2l0aHViLmlvIn0",
+    "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "PIXELATE",
+    "homeUrl": "https://clanktard.github.io/pixelate-app",
+    "iconUrl": "https://clanktard.github.io/pixelate-app/icons/icon-512.png",
+    "buttonTitle": "Pixelate",
+    "splashImageUrl": "https://clanktard.github.io/pixelate-app/icons/icon-512.png",
+    "splashBackgroundColor": "#111111"
+  }
+}

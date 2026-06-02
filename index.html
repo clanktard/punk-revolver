@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Pixelate</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" href="/favicon.png">
+<meta name="theme-color" content="#00ff00">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pixelate">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#111;color:#fff;font-family:monospace;padding:clamp(12px,3vw,24px);max-width:600px;margin:0 auto}
+h1{font-size:clamp(16px,4vw,22px);margin-bottom:clamp(8px,2vw,16px);color:#0f0}
+.upload{border:2px dashed #444;border-radius:12px;padding:clamp(20px,5vw,40px);text-align:center;cursor:pointer;margin-bottom:clamp(12px,3vw,20px);transition:border-color .2s}
+.upload:hover{border-color:#0f0}
+.upload:active{border-color:#0f0;background:rgba(0,255,0,0.05)}
+.upload p{color:#888;font-size:clamp(12px,3vw,16px)}
+.upload p span{color:#0f0;font-size:clamp(20px,5vw,28px);display:block;margin-bottom:8px}
+canvas{display:none}
+.controls{margin-bottom:clamp(12px,3vw,20px)}
+label{display:block;font-size:clamp(11px,2.5vw,13px);color:#888;margin-bottom:4px}
+input[type=range]{width:100%;margin-bottom:clamp(10px,2.5vw,14px);height:28px;cursor:pointer;accent-color:#0f0}
+.val{color:#0f0;font-weight:bold}
+.row{display:flex;align-items:center;gap:clamp(6px,2vw,12px);margin-bottom:clamp(10px,2.5vw,14px)}
+.toggle{background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:clamp(6px,1.5vw,10px) clamp(10px,2.5vw,16px);font-family:monospace;cursor:pointer;font-size:clamp(12px,2.8vw,14px);transition:all .2s}
+.toggle.on{background:#0f0;color:#000}
+.preview{text-align:center;margin:clamp(12px,3vw,20px) 0}
+.preview canvas{display:inline-block;image-rendering:pixelated;image-rendering:crisp-edges;border:1px solid #333;max-width:100%;height:auto}
+.stats{font-size:clamp(11px,2.5vw,13px);color:#888;margin:8px 0}
+.btns{display:flex;gap:clamp(6px,2vw,12px);margin-top:clamp(10px,2.5vw,16px);flex-wrap:wrap}
+.btn{background:#0f0;color:#000;border:none;border-radius:8px;padding:clamp(8px,2vw,12px) clamp(12px,3vw,18px);font-family:monospace;font-weight:bold;cursor:pointer;font-size:clamp(12px,2.8vw,14px);transition:opacity .2s;flex:1;min-width:120px;text-align:center}
+.btn:active{opacity:0.7}
+.hidden{display:none}
+@media(min-width:500px){
+  .btn{min-width:160px}
+}
+</style>
+</head><body>
+<h1>⬛ PIXELATE</h1>
+
+<div class="upload" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+  <p><span>📷</span>Tap to upload image</p>
+</div>
+<input type="file" id="fileInput" accept="image/*" style="display:none">
+
+<div id="editor" class="hidden">
+  <div class="controls">
+    <label>Dark Points: <span class="val" id="darkVal">120</span></label>
+    <input type="range" id="darkSlider" min="10" max="300" step="10" value="120">
+    
+    <label>Contrast: <span class="val" id="contrastVal">1.5</span></label>
+    <input type="range" id="contrastSlider" min="0.5" max="3.0" step="0.1" value="1.5">
+    
+    <label>Crop Margin: <span class="val" id="cropVal">1</span>px</label>
+    <input type="range" id="cropSlider" min="0" max="6" step="1" value="1">
+  </div>
+  
+  <div class="row">
+    <button class="toggle" id="invertBtn" onclick="toggleInvert()">Invert</button>
+    <button class="toggle" id="gridBtn" onclick="toggleGrid()">Grid</button>
+  </div>
+  
+  <div class="stats" id="stats">24×24 | 0/576 pixels</div>
+  
+  <div class="preview" id="preview"></div>
+  
+  <div class="btns">
+    <button class="btn" onclick="downloadPNG()">⬇ PNG (24×24)</button>
+    <button class="btn" onclick="downloadScaled()">⬇ PNG (8×)</button>
+  </div>
+</div>
+
+<canvas id="srcCanvas"></canvas>
+
+<script>
+const GRID = 24;
+let darkBudget = 120, contrast = 1.5, cropMargin = 1, invert = false, showGrid = false;
+let srcImageData = null, srcW = 0, srcH = 0;
+
+function getScale() {
+  const container = document.querySelector('.preview');
+  if (!container) return 12;
+  const maxW = container.clientWidth - 4;
+  const s = Math.floor(maxW / GRID);
+  return Math.max(4, Math.min(20, s));
+}
+
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  if (!e.target.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const img = new Image();
+    img.onload = function() {
+      srcW = img.width; srcH = img.height;
+      const c = document.getElementById('srcCanvas');
+      c.width = srcW; c.height = srcH;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      srcImageData = ctx.getImageData(0, 0, srcW, srcH);
+      document.getElementById('editor').classList.remove('hidden');
+      document.getElementById('uploadArea').innerHTML = '<p><span>✅</span>Image loaded — ' + srcW + '×' + srcH + '</p>';
+      process();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(e.target.files[0]);
+});
+
+document.getElementById('darkSlider').addEventListener('input', function() {
+  darkBudget = parseInt(this.value);
+  document.getElementById('darkVal').textContent = darkBudget;
+  process();
+});
+document.getElementById('contrastSlider').addEventListener('input', function() {
+  contrast = parseFloat(this.value);
+  document.getElementById('contrastVal').textContent = contrast.toFixed(1);
+  process();
+});
+document.getElementById('cropSlider').addEventListener('input', function() {
+  cropMargin = parseInt(this.value);
+  document.getElementById('cropVal').textContent = cropMargin;
+  process();
+});
+
+function toggleInvert() {
+  invert = !invert;
+  document.getElementById('invertBtn').classList.toggle('on', invert);
+  process();
+}
+function toggleGrid() {
+  showGrid = !showGrid;
+  document.getElementById('gridBtn').classList.toggle('on', showGrid);
+  process();
+}
+
+function process() {
+  if (!srcImageData) return;
+  
+  // Step 1: Auto-crop to subject
+  let minX = srcW, minY = srcH, maxX = 0, maxY = 0;
+  const d = srcImageData.data;
+  for (let y = 0; y < srcH; y++) {
+    for (let x = 0; x < srcW; x++) {
+      const i = (y * srcW + x) * 4;
+      const gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+      if (gray < 200) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  
+  // Apply crop margin
+  minX = Math.max(0, minX - cropMargin);
+  minY = Math.max(0, minY - cropMargin);
+  maxX = Math.min(srcW - 1, maxX + cropMargin);
+  maxY = Math.min(srcH - 1, maxY + cropMargin);
+  
+  const cropW = maxX - minX + 1;
+  const cropH = maxY - minY + 1;
+  
+  // Step 2: Downsample to GRID×GRID (nearest neighbor)
+  const pixels = [];
+  for (let gy = 0; gy < GRID; gy++) {
+    for (let gx = 0; gx < GRID; gx++) {
+      const srcX = minX + Math.floor(gx * cropW / GRID);
+      const srcY = minY + Math.floor(gy * cropH / GRID);
+      const i = (srcY * srcW + srcX) * 4;
+      let gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+      // Apply contrast
+      gray = ((gray / 255 - 0.5) * contrast + 0.5) * 255;
+      gray = Math.max(0, Math.min(255, gray));
+      pixels.push({ gx, gy, gray });
+    }
+  }
+  
+  // Step 3: Sort by darkness, pick top N
+  pixels.sort((a, b) => a.gray - b.gray);
+  const darkSet = new Set();
+  const limit = Math.min(darkBudget, pixels.length);
+  for (let i = 0; i < limit; i++) {
+    darkSet.add(pixels[i].gy * GRID + pixels[i].gx);
+  }
+  
+  // Step 4: Render
+  const SCALE = getScale();
+  const previewCanvas = document.createElement('canvas');
+  previewCanvas.width = GRID * SCALE;
+  previewCanvas.height = GRID * SCALE;
+  const ctx = previewCanvas.getContext('2d');
+  
+  // Background
+  ctx.fillStyle = invert ? '#000' : '#fff';
+  ctx.fillRect(0, 0, GRID * SCALE, GRID * SCALE);
+  
+  // Pixels
+  ctx.fillStyle = invert ? '#fff' : '#000';
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      if (darkSet.has(y * GRID + x)) {
+        ctx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+      }
+    }
+  }
+  
+  // Grid
+  if (showGrid) {
+    ctx.strokeStyle = invert ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i <= GRID; i++) {
+      ctx.beginPath(); ctx.moveTo(i * SCALE, 0); ctx.lineTo(i * SCALE, GRID * SCALE); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * SCALE); ctx.lineTo(GRID * SCALE, i * SCALE); ctx.stroke();
+    }
+  }
+  
+  // Display
+  document.getElementById('preview').innerHTML = '';
+  document.getElementById('preview').appendChild(previewCanvas);
+  
+  // Stats
+  const pct = ((darkSet.size / (GRID * GRID)) * 100).toFixed(1);
+  document.getElementById('stats').textContent = GRID + '×' + GRID + ' | ' + darkSet.size + '/' + (GRID*GRID) + ' pixels (' + pct + '%)';
+}
+
+// Re-render on resize
+let resizeTimer;
+window.addEventListener('resize', function() {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(process, 150);
+});
+
+function downloadPNG() {
+  if (!srcImageData) return;
+  const c = document.createElement('canvas');
+  c.width = GRID; c.height = GRID;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = invert ? '#000' : '#fff';
+  ctx.fillRect(0, 0, GRID, GRID);
+  ctx.fillStyle = invert ? '#fff' : '#000';
+  // Re-process to get dark pixels
+  const d = srcImageData.data;
+  let minX = srcW, minY = srcH, maxX = 0, maxY = 0;
+  for (let y = 0; y < srcH; y++) {
+    for (let x = 0; x < srcW; x++) {
+      const i = (y * srcW + x) * 4;
+      const gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+      if (gray < 200) {
+        if (x < minX) minX = x; if (y < minY) minY = y;
+        if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+      }
+    }
+  }
+  minX = Math.max(0, minX - cropMargin); minY = Math.max(0, minY - cropMargin);
+  maxX = Math.min(srcW - 1, maxX + cropMargin); maxY = Math.min(srcH - 1, maxY + cropMargin);
+  const cropW = maxX - minX + 1, cropH = maxY - minY + 1;
+  const pixels = [];
+  for (let gy = 0; gy < GRID; gy++) {
+    for (let gx = 0; gx < GRID; gx++) {
+      const srcX = minX + Math.floor(gx * cropW / GRID);
+      const srcY = minY + Math.floor(gy * cropH / GRID);
+      const i = (srcY * srcW + srcX) * 4;
+      let gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+      gray = ((gray / 255 - 0.5) * contrast + 0.5) * 255;
+      gray = Math.max(0, Math.min(255, gray));
+      pixels.push({ gx, gy, gray });
+    }
+  }
+  pixels.sort((a, b) => a.gray - b.gray);
+  for (let i = 0; i < Math.min(darkBudget, pixels.length); i++) {
+    ctx.fillRect(pixels[i].gx, pixels[i].gy, 1, 1);
+  }
+  const a = document.createElement('a');
+  a.download = 'pixel-24x24.png';
+  a.href = c.toDataURL('image/png');
+  a.click();
+}
+
+function downloadScaled() {
+  if (!srcImageData) return;
+  const S = 8;
+  const c = document.createElement('canvas');
+  c.width = GRID * S; c.height = GRID * S;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = invert ? '#000' : '#fff';
+  ctx.fillRect(0, 0, GRID * S, GRID * S);
+  ctx.fillStyle = invert ? '#fff' : '#000';
+  const d = srcImageData.data;
+  let minX = srcW, minY = srcH, maxX = 0, maxY = 0;
+  for (let y = 0; y < srcH; y++) {
+    for (let x = 0; x < srcW; x++) {
+      const i = (y * srcW + x) * 4;
+      const gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+      if (gray < 200) {
+        if (x < minX) minX = x; if (y < minY) minY = y;
+        if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+      }
+    }
+  }
+  minX = Math.max(0, minX - cropMargin); minY = Math.max(0, minY - cropMargin);
+  maxX = Math.min(srcW - 1, maxX + cropMargin); maxY = Math.min(srcH - 1, maxY + cropMargin);
+  const cropW = maxX - minX + 1, cropH = maxY - minY + 1;
+  const pixels = [];
+  for (let gy = 0; gy < GRID; gy++) {
+    for (let gx = 0; gx < GRID; gx++) {
+      const srcX = minX + Math.floor(gx * cropW / GRID);
+      const srcY = minY + Math.floor(gy * cropH / GRID);
+      const i = (srcY * srcW + srcX) * 4;
+      let gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+      gray = ((gray / 255 - 0.5) * contrast + 0.5) * 255;
+      gray = Math.max(0, Math.min(255, gray));
+      pixels.push({ gx, gy, gray });
+    }
+  }
+  pixels.sort((a, b) => a.gray - b.gray);
+  for (let i = 0; i < Math.min(darkBudget, pixels.length); i++) {
+    ctx.fillRect(pixels[i].gx * S, pixels[i].gy * S, S, S);
+  }
+  const a = document.createElement('a');
+  a.download = 'pixel-192x192.png';
+  a.href = c.toDataURL('image/png');
+  a.click();
+}
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body></html>
