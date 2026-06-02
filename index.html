@@ -1,131 +1,176 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>Pixelate</title>
+<title>PunkForge</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" type="image/png" href="/favicon.png">
 <meta name="theme-color" content="#00ff00">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Pixelate">
+<meta name="apple-mobile-web-app-title" content="PunkForge">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#111;color:#fff;font-family:monospace;padding:clamp(16px,4vw,24px);max-width:500px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
-h1{font-size:clamp(20px,5vw,28px);margin-bottom:4px;color:#0f0;text-align:center}
-.subtitle{color:#666;font-size:clamp(11px,2.5vw,13px);text-align:center;margin-bottom:clamp(16px,4vw,24px)}
-.upload{border:2px dashed #444;border-radius:16px;padding:clamp(24px,6vw,40px);text-align:center;cursor:pointer;margin-bottom:clamp(16px,4vw,24px);transition:all .2s}
-.upload:hover{border-color:#0f0;background:rgba(0,255,0,0.03)}
-.upload:active{border-color:#0f0;background:rgba(0,255,0,0.08)}
-.upload p{color:#888;font-size:clamp(14px,3.5vw,18px)}
-.upload p span{color:#0f0;font-size:clamp(28px,7vw,36px);display:block;margin-bottom:8px}
+body{background:#000;color:#fff;font-family:monospace;padding:clamp(16px,4vw,24px);max-width:500px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;position:relative;overflow-x:hidden}
+body::before{content:'';position:fixed;top:0;left:0;right:0;bottom:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,0,0.03) 2px,rgba(0,255,0,0.03) 4px);pointer-events:none;z-index:1000}
+h1{font-size:clamp(24px,6vw,32px);margin-bottom:4px;color:#0f0;text-align:center;text-shadow:0 0 20px rgba(0,255,0,0.5);letter-spacing:4px}
+.subtitle{color:#0f0;font-size:clamp(11px,2.5vw,13px);text-align:center;margin-bottom:clamp(16px,4vw,24px);opacity:0.7;letter-spacing:2px}
+.demo-section{margin:clamp(20px,5vw,30px) 0;text-align:center}
+.demo-grid{display:inline-block;position:relative}
+.demo-canvas{border:1px solid rgba(0,255,0,0.3);background:#000}
+.demo-label{font-size:clamp(10px,2.5vw,12px);color:#0f0;opacity:0.5;margin-top:8px;letter-spacing:1px}
+.demo-arrow{display:flex;align-items:center;justify-content:center;margin:12px 0;color:#0f0;font-size:24px;opacity:0.5}
+.demo-text{font-size:clamp(11px,2.5vw,13px);color:#0f0;opacity:0.6;margin:16px 0;line-height:1.6}
+.demo-text span{color:#0f0;opacity:1}
+.how-it-works{margin:clamp(20px,5vw,30px) 0;display:flex;flex-direction:column;gap:16px}
+.step{display:flex;align-items:flex-start;gap:12px;text-align:left}
+.step-num{color:#0f0;font-size:clamp(20px,5vw,24px);font-weight:bold;min-width:30px;opacity:0.5}
+.step-text{color:#0f0;font-size:clamp(12px,3vw,14px);opacity:0.7;line-height:1.5}
+.step-text strong{opacity:1}
+.upload{border:2px dashed rgba(0,255,0,0.4);border-radius:16px;padding:clamp(24px,6vw,40px);text-align:center;cursor:pointer;margin-bottom:clamp(16px,4vw,24px);transition:all .3s;position:relative;overflow:hidden}
+.upload:hover{border-color:#0f0;background:rgba(0,255,0,0.05);box-shadow:0 0 30px rgba(0,255,0,0.1)}
+.upload:active{border-color:#0f0;background:rgba(0,255,0,0.1)}
+.upload p{color:#0f0;font-size:clamp(14px,3.5vw,18px);opacity:0.8}
+.upload p span{color:#0f0;font-size:clamp(28px,7vw,36px);display:block;margin-bottom:8px;text-shadow:0 0 20px rgba(0,255,0,0.5)}
 .upload.loading{border-color:#0f0;animation:pulse 1.5s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 .editor{flex:1;display:flex;flex-direction:column}
 .hidden{display:none}
 .section{margin-bottom:clamp(16px,4vw,20px)}
-.section-title{font-size:clamp(13px,3vw,16px);color:#0f0;margin-bottom:clamp(8px,2vw,12px);font-weight:bold}
+.section-title{font-size:clamp(13px,3vw,16px);color:#0f0;margin-bottom:clamp(8px,2vw,12px);font-weight:bold;letter-spacing:1px}
 .canvas-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(8px,2vw,12px)}
-.canvas-btn{background:#1a1a1a;border:2px solid #333;border-radius:12px;padding:clamp(12px,3vw,16px) 8px;text-align:center;cursor:pointer;transition:all .2s}
-.canvas-btn:hover{border-color:#0f0;background:#0a1a0a}
-.canvas-btn.on{border-color:#0f0;background:#0a1a0a;box-shadow:0 0 20px rgba(0,255,0,0.2)}
-.canvas-size{font-size:clamp(18px,4.5vw,24px);color:#fff;font-weight:bold;display:block}
-.canvas-pts{font-size:clamp(10px,2.5vw,12px);color:#888;margin-top:4px;display:block}
-.canvas-label{font-size:clamp(9px,2vw,11px);color:#666;margin-top:2px;display:block}
-.pixel-control{background:#1a1a1a;border-radius:12px;padding:clamp(12px,3vw,16px)}
+.canvas-btn{background:rgba(0,255,0,0.05);border:2px solid rgba(0,255,0,0.3);border-radius:12px;padding:clamp(12px,3vw,16px) 8px;text-align:center;cursor:pointer;transition:all .2s}
+.canvas-btn:hover{border-color:#0f0;background:rgba(0,255,0,0.1)}
+.canvas-btn.on{border-color:#0f0;background:rgba(0,255,0,0.15);box-shadow:0 0 20px rgba(0,255,0,0.2)}
+.canvas-size{font-size:clamp(18px,4.5vw,24px);color:#0f0;font-weight:bold;display:block}
+.canvas-pts{font-size:clamp(10px,2.5vw,12px);color:#0f0;opacity:0.6;margin-top:4px;display:block}
+.canvas-label{font-size:clamp(9px,2vw,11px);color:#0f0;opacity:0.4;margin-top:2px;display:block}
+.pixel-control{background:rgba(0,255,0,0.05);border:1px solid rgba(0,255,0,0.2);border-radius:12px;padding:clamp(12px,3vw,16px)}
 .pixel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:clamp(8px,2vw,12px)}
-.pixel-label{font-size:clamp(12px,3vw,14px);color:#888}
-.pixel-count{font-size:clamp(24px,6vw,32px);color:#0f0;font-weight:bold}
-.pixel-max{font-size:clamp(11px,2.5vw,13px);color:#666;text-align:center;margin-top:4px}
-input[type=range]{width:100%;height:clamp(32px,8vw,40px);cursor:pointer;accent-color:#0f0;background:#333;border-radius:8px;-webkit-appearance:none;appearance:none}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:clamp(24px,6vw,32px);height:clamp(24px,6vw,32px);background:#0f0;border-radius:50%;cursor:pointer;border:3px solid #111}
-input[type=range]::-moz-range-thumb{width:clamp(24px,6vw,32px);height:clamp(24px,6vw,32px);background:#0f0;border-radius:50%;cursor:pointer;border:3px solid #111}
+.pixel-label{font-size:clamp(12px,3vw,14px);color:#0f0;opacity:0.7}
+.pixel-count{font-size:clamp(24px,6vw,32px);color:#0f0;font-weight:bold;text-shadow:0 0 15px rgba(0,255,0,0.5)}
+.pixel-max{font-size:clamp(11px,2.5vw,13px);color:#0f0;opacity:0.5;text-align:center;margin-top:4px}
+input[type=range]{width:100%;height:clamp(32px,8vw,40px);cursor:pointer;accent-color:#0f0;background:#111;border-radius:8px;-webkit-appearance:none;appearance:none;border:1px solid rgba(0,255,0,0.3)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:clamp(24px,6vw,32px);height:clamp(24px,6vw,32px);background:#0f0;border-radius:50%;cursor:pointer;border:3px solid #000;box-shadow:0 0 10px rgba(0,255,0,0.5)}
+input[type=range]::-moz-range-thumb{width:clamp(24px,6vw,32px);height:clamp(24px,6vw,32px);background:#0f0;border-radius:50%;cursor:pointer;border:3px solid #000;box-shadow:0 0 10px rgba(0,255,0,0.5)}
 .preview-section{text-align:center;margin:clamp(12px,3vw,16px) 0}
 .preview-container{display:flex;flex-direction:column;gap:clamp(12px,3vw,16px);align-items:center}
 .preview-box{width:100%;max-width:300px}
-.preview-box img,.preview-box canvas{width:100%;height:auto;border:2px solid #333;border-radius:8px;display:block}
+.preview-box img,.preview-box canvas{width:100%;height:auto;border:2px solid rgba(0,255,0,0.3);border-radius:8px;display:block}
 .preview-box.pixelated canvas{image-rendering:pixelated;image-rendering:crisp-edges}
-.preview-label{font-size:clamp(10px,2.5vw,12px);color:#666;margin-top:4px;text-align:center}
-.stats{font-size:clamp(12px,3vw,14px);color:#888;margin:clamp(8px,2vw,12px) 0;text-align:center}
+.preview-label{font-size:clamp(10px,2.5vw,12px);color:#0f0;opacity:0.5;margin-top:4px;text-align:center;letter-spacing:1px}
+.stats{font-size:clamp(12px,3vw,14px);color:#0f0;opacity:0.7;margin:clamp(8px,2vw,12px) 0;text-align:center}
 .download-btns{display:grid;grid-template-columns:1fr 1fr;gap:clamp(8px,2vw,12px);margin-top:auto;padding-top:clamp(12px,3vw,16px)}
-.dl-btn{background:#0f0;color:#000;border:none;border-radius:12px;padding:clamp(14px,3.5vw,18px);font-family:monospace;font-weight:bold;cursor:pointer;font-size:clamp(14px,3.5vw,18px);transition:all .2s}
+.dl-btn{background:#0f0;color:#000;border:none;border-radius:12px;padding:clamp(14px,3.5vw,18px);font-family:monospace;font-weight:bold;cursor:pointer;font-size:clamp(14px,3.5vw,18px);transition:all .2s;text-shadow:none}
 .dl-btn:active{transform:scale(0.95);opacity:0.8}
-.dl-btn.secondary{background:#222;color:#0f0;border:2px solid #0f0}
+.dl-btn.secondary{background:transparent;color:#0f0;border:2px solid #0f0}
 .advanced-toggle{text-align:center;margin:clamp(8px,2vw,12px) 0}
-.advanced-toggle button{background:none;border:none;color:#666;font-family:monospace;font-size:clamp(11px,2.5vw,13px);cursor:pointer;padding:8px}
-.advanced-toggle button:hover{color:#0f0}
-.advanced{background:#1a1a1a;border-radius:12px;padding:clamp(12px,3vw,16px);margin-bottom:clamp(12px,3vw,16px)}
-.advanced label{display:block;font-size:clamp(11px,2.5vw,13px);color:#888;margin-bottom:4px;margin-top:clamp(8px,2vw,12px)}
+.advanced-toggle button{background:none;border:none;color:#0f0;font-family:monospace;font-size:clamp(11px,2.5vw,13px);cursor:pointer;padding:8px;opacity:0.5}
+.advanced-toggle button:hover{opacity:1}
+.advanced{background:rgba(0,255,0,0.05);border:1px solid rgba(0,255,0,0.2);border-radius:12px;padding:clamp(12px,3vw,16px);margin-bottom:clamp(12px,3vw,16px)}
+.advanced label{display:block;font-size:clamp(11px,2.5vw,13px);color:#0f0;opacity:0.7;margin-bottom:4px;margin-top:clamp(8px,2vw,12px)}
 .advanced label:first-child{margin-top:0}
 .advanced input[type=range]{height:24px}
 .advanced .val{color:#0f0;font-weight:bold}
 .adv-row{display:flex;gap:clamp(6px,2vw,12px);margin-top:clamp(8px,2vw,12px)}
-.adv-toggle{background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 12px;font-family:monospace;cursor:pointer;font-size:clamp(11px,2.5vw,13px);transition:all .2s;flex:1;text-align:center}
+.adv-toggle{background:rgba(0,255,0,0.05);color:#0f0;border:1px solid rgba(0,255,0,0.3);border-radius:6px;padding:6px 12px;font-family:monospace;cursor:pointer;font-size:clamp(11px,2.5vw,13px);transition:all .2s;flex:1;text-align:center}
 .adv-toggle.on{background:#0f0;color:#000;border-color:#0f0}
-.isolate-btn{background:#1a1a1a;border:2px solid #333;border-radius:12px;padding:clamp(12px,3vw,16px);text-align:center;cursor:pointer;transition:all .2s;margin-bottom:clamp(12px,3vw,16px)}
-.isolate-btn:hover{border-color:#0f0;background:#0a1a0a}
-.isolate-btn.on{border-color:#0f0;background:#0a1a0a;box-shadow:0 0 20px rgba(0,255,0,0.2)}
+.isolate-btn{background:rgba(0,255,0,0.05);border:2px solid rgba(0,255,0,0.3);border-radius:12px;padding:clamp(12px,3vw,16px);text-align:center;cursor:pointer;transition:all .2s;margin-bottom:clamp(12px,3vw,16px)}
+.isolate-btn:hover{border-color:#0f0;background:rgba(0,255,0,0.1)}
+.isolate-btn.on{border-color:#0f0;background:rgba(0,255,0,0.15);box-shadow:0 0 20px rgba(0,255,0,0.2)}
 .isolate-btn .icon{font-size:24px;display:block;margin-bottom:4px}
-.isolate-btn .label{font-size:clamp(12px,3vw,14px);color:#fff;font-weight:bold;display:block}
-.isolate-btn .desc{font-size:clamp(10px,2.5vw,12px);color:#888;margin-top:2px;display:block}
+.isolate-btn .label{font-size:clamp(12px,3vw,14px);color:#0f0;font-weight:bold;display:block}
+.isolate-btn .desc{font-size:clamp(10px,2.5vw,12px);color:#0f0;opacity:0.6;margin-top:2px;display:block}
 .isolate-status{font-size:clamp(11px,2.5vw,13px);color:#0f0;text-align:center;margin:8px 0;min-height:1.5em}
-.new-upload{background:#222;color:#0f0;border:2px solid #0f0;border-radius:12px;padding:clamp(10px,2.5vw,14px);font-family:monospace;font-weight:bold;cursor:pointer;font-size:clamp(12px,3vw,14px);transition:all .2s;margin-bottom:clamp(12px,3vw,16px);width:100%}
+.new-upload{background:transparent;color:#0f0;border:2px solid #0f0;border-radius:12px;padding:clamp(10px,2.5vw,14px);font-family:monospace;font-weight:bold;cursor:pointer;font-size:clamp(12px,3vw,14px);transition:all .2s;margin-bottom:clamp(12px,3vw,16px);width:100%}
 .new-upload:active{transform:scale(0.95)}
+.footer{text-align:center;margin-top:auto;padding:clamp(20px,5vw,30px) 0;color:#0f0;opacity:0.3;font-size:clamp(10px,2.5vw,12px);letter-spacing:1px}
 </style>
 </head><body>
-<h1>⬛ PIXELATE</h1>
-<p class="subtitle">Image → Pixel Art</p>
+<h1>PUNKFORGE</h1>
+<p class="subtitle">PHOTO → PIXEL ART → ONCHAIN</p>
+
+<div class="demo-section">
+  <canvas id="demoCanvas" class="demo-canvas" width="192" height="192"></canvas>
+  <div class="demo-label">24×24 • 120 PIXELS • 50 PTS</div>
+</div>
+
+<div class="demo-text">
+  Upload any <span>messy photo</span>.<br>
+  We <span>isolate the character</span>.<br>
+  You get <span>pixel art</span>.<br>
+  <span>No drawing skills needed.</span>
+</div>
+
+<div class="how-it-works">
+  <div class="step">
+    <span class="step-num">01</span>
+    <span class="step-text"><strong>Upload</strong> any photo — messy, noisy, whatever</span>
+  </div>
+  <div class="step">
+    <span class="step-num">02</span>
+    <span class="step-text"><strong>Isolate</strong> — we grab just the character</span>
+  </div>
+  <div class="step">
+    <span class="step-num">03</span>
+    <span class="step-text"><strong>Pixelate</strong> — crisp black & white art</span>
+  </div>
+  <div class="step">
+    <span class="step-num">04</span>
+    <span class="step-text"><strong>Mint</strong> — save onchain via Normie Punk Evolve</span>
+  </div>
+</div>
 
 <div class="upload" id="uploadArea" onclick="document.getElementById('fileInput').click()">
-  <p><span>📷</span>Upload Image</p>
+  <p><span>⬆</span>UPLOAD IMAGE</p>
 </div>
 <input type="file" id="fileInput" accept="image/*" style="display:none">
 
 <div id="editor" class="editor hidden">
-  <button class="new-upload" onclick="document.getElementById('fileInput').click()">📷 New Image</button>
+  <button class="new-upload" onclick="document.getElementById('fileInput').click()">⬆ NEW IMAGE</button>
 
   <div class="section">
-    <div class="section-title">Preview</div>
+    <div class="section-title">PREVIEW</div>
     <div class="preview-container" id="previewContainer">
       <div class="preview-box" id="originalPreview">
         <img id="originalImg" src="" alt="Original">
-        <div class="preview-label">Original</div>
+        <div class="preview-label">ORIGINAL</div>
       </div>
       <div class="preview-box" id="isolatedPreview" style="display:none">
         <img id="isolatedImg" src="" alt="Isolated">
-        <div class="preview-label">Isolated</div>
+        <div class="preview-label">ISOLATED</div>
       </div>
       <div class="preview-box pixelated" id="pixelatedPreview">
         <canvas id="previewCanvas"></canvas>
-        <div class="preview-label">Pixelated</div>
+        <div class="preview-label">PIXELATED</div>
       </div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">Canvas Size</div>
+    <div class="section-title">CANVAS SIZE</div>
     <div class="canvas-btns">
       <div class="canvas-btn on" data-size="24" onclick="setGridSize(24)">
         <span class="canvas-size">24×24</span>
-        <span class="canvas-pts">50 pts</span>
-        <span class="canvas-label">Standard</span>
+        <span class="canvas-pts">50 PTS</span>
+        <span class="canvas-label">STANDARD</span>
       </div>
       <div class="canvas-btn" data-size="64" onclick="setGridSize(64)">
         <span class="canvas-size">64×64</span>
-        <span class="canvas-pts">400 pts</span>
+        <span class="canvas-pts">400 PTS</span>
         <span class="canvas-label">HD</span>
       </div>
       <div class="canvas-btn" data-size="128" onclick="setGridSize(128)">
         <span class="canvas-size">128×128</span>
-        <span class="canvas-pts">2,000 pts</span>
-        <span class="canvas-label">Ultra</span>
+        <span class="canvas-pts">2,000 PTS</span>
+        <span class="canvas-label">ULTRA</span>
       </div>
     </div>
   </div>
 
   <div class="section">
     <div class="isolate-btn on" id="isolateBtn" onclick="toggleIsolate()">
-      <span class="icon">✂️</span>
-      <span class="label">Isolate Character</span>
+      <span class="icon">✂</span>
+      <span class="label">ISOLATE CHARACTER</span>
       <span class="desc">Remove background, keep only the subject</span>
     </div>
     <div class="isolate-status" id="isolateStatus"></div>
@@ -134,29 +179,29 @@ input[type=range]::-moz-range-thumb{width:clamp(24px,6vw,32px);height:clamp(24px
   <div class="section">
     <div class="pixel-control">
       <div class="pixel-header">
-        <span class="pixel-label">Black Pixels</span>
+        <span class="pixel-label">BLACK PIXELS</span>
         <span class="pixel-count" id="darkVal">120</span>
       </div>
       <input type="range" id="darkSlider" min="10" max="576" step="1" value="120">
-      <div class="pixel-max" id="pixelMax">of 576 pixels</div>
+      <div class="pixel-max" id="pixelMax">OF 576 PIXELS</div>
     </div>
   </div>
 
-  <div class="stats" id="stats">24×24 • 120/576 pixels (20.8%) • 50 pts</div>
+  <div class="stats" id="stats">24×24 • 120/576 PIXELS (20.8%) • 50 PTS</div>
 
   <div class="advanced-toggle">
-    <button onclick="toggleAdvanced()">⚙ Advanced Options</button>
+    <button onclick="toggleAdvanced()">⚙ ADVANCED OPTIONS</button>
   </div>
   <div id="advanced" class="advanced hidden">
-    <label>Contrast: <span class="val" id="contrastVal">1.5</span></label>
+    <label>CONTRAST: <span class="val" id="contrastVal">1.5</span></label>
     <input type="range" id="contrastSlider" min="0.5" max="3.0" step="0.1" value="1.5">
     
-    <label>Crop Margin: <span class="val" id="cropVal">1</span>px</label>
+    <label>CROP MARGIN: <span class="val" id="cropVal">1</span>PX</label>
     <input type="range" id="cropSlider" min="0" max="6" step="1" value="1">
     
     <div class="adv-row">
-      <button class="adv-toggle" id="invertBtn" onclick="toggleInvert()">Invert</button>
-      <button class="adv-toggle" id="gridBtn" onclick="toggleGrid()">Grid</button>
+      <button class="adv-toggle" id="invertBtn" onclick="toggleInvert()">INVERT</button>
+      <button class="adv-toggle" id="gridBtn" onclick="toggleGrid()">GRID</button>
     </div>
   </div>
 
@@ -169,7 +214,111 @@ input[type=range]::-moz-range-thumb{width:clamp(24px,6vw,32px);height:clamp(24px
 <canvas id="srcCanvas" style="display:none"></canvas>
 <canvas id="isolatedCanvas" style="display:none"></canvas>
 
+<div class="footer">PUNKFORGE • NORMIE PUNK EVOLVE • BASE CHAIN</div>
+
 <script>
+// Demo animation - draws a pixel skull
+function drawDemo() {
+  const canvas = document.getElementById('demoCanvas');
+  const ctx = canvas.getContext('2d');
+  const SCALE = 8;
+  canvas.width = 24 * SCALE;
+  canvas.height = 24 * SCALE;
+  
+  // Skull pattern (24x24)
+  const skull = [
+    '000000000000000000000000',
+    '000000000000000000000000',
+    '000000011111111111000000',
+    '000000111111111111100000',
+    '000001111111111111110000',
+    '000011111111111111111000',
+    '000111111111111111111100',
+    '000111100011110001111100',
+    '000111000001100000111100',
+    '000111000001100000111100',
+    '000111100011110001111100',
+    '000111111111111111111100',
+    '000011111111111111111000',
+    '000001111111111111110000',
+    '000000111111111111100000',
+    '000000011111111111000000',
+    '000000001110011100000000',
+    '000000001110011100000000',
+    '000000001110011100000000',
+    '000000000110011000000000',
+    '000000000000000000000000',
+    '000000000000000000000000',
+    '000000000000000000000000',
+    '000000000000000000000000'
+  ];
+  
+  let pixels = [];
+  for (let y = 0; y < 24; y++) {
+    for (let x = 0; x < 24; x++) {
+      if (skull[y][x] === '1') {
+        pixels.push({x, y});
+      }
+    }
+  }
+  
+  // Shuffle pixels for random reveal
+  for (let i = pixels.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pixels[i], pixels[j]] = [pixels[j], pixels[i]];
+  }
+  
+  let currentPixel = 0;
+  
+  function animate() {
+    if (currentPixel < pixels.length) {
+      const p = pixels[currentPixel];
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, 24 * SCALE, 24 * SCALE);
+      
+      // Draw revealed pixels
+      ctx.fillStyle = '#0f0';
+      for (let i = 0; i <= currentPixel; i++) {
+        ctx.fillRect(pixels[i].x * SCALE, pixels[i].y * SCALE, SCALE, SCALE);
+      }
+      
+      // Add glow to last pixel
+      ctx.shadowColor = '#0f0';
+      ctx.shadowBlur = 10;
+      ctx.fillRect(p.x * SCALE, p.y * SCALE, SCALE, SCALE);
+      ctx.shadowBlur = 0;
+      
+      currentPixel++;
+      setTimeout(animate, 30);
+    } else {
+      // Animation complete - restart after delay
+      setTimeout(() => {
+        // Fade out
+        let opacity = 1;
+        function fadeOut() {
+          opacity -= 0.05;
+          if (opacity > 0) {
+            ctx.fillStyle = `rgba(0,0,0,0.1)`;
+            ctx.fillRect(0, 0, 24 * SCALE, 24 * SCALE);
+            requestAnimationFrame(fadeOut);
+          } else {
+            currentPixel = 0;
+            // Re-shuffle
+            for (let i = pixels.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [pixels[i], pixels[j]] = [pixels[j], pixels[i]];
+            }
+            animate();
+          }
+        }
+        fadeOut();
+      }, 2000);
+    }
+  }
+  
+  animate();
+}
+
 // Global variables
 let GRID = 24;
 let darkBudget = 120, contrast = 1.5, cropMargin = 1, invert = false, showGrid = false;
@@ -194,7 +343,7 @@ async function loadBackgroundRemoval() {
     return true;
   } catch (err) {
     console.warn('⚠️ Background removal library failed to load:', err);
-    document.getElementById('isolateStatus').textContent = '⚠️ Isolation unavailable (library failed to load)';
+    document.getElementById('isolateStatus').textContent = '⚠️ ISOLATION UNAVAILABLE';
     document.getElementById('isolateBtn').style.opacity = '0.5';
     document.getElementById('isolateBtn').style.pointerEvents = 'none';
     return false;
@@ -229,7 +378,7 @@ window.setGridSize = function(size) {
   document.getElementById('darkSlider').value = cfg.defaultDark;
   darkBudget = cfg.defaultDark;
   document.getElementById('darkVal').textContent = darkBudget;
-  document.getElementById('pixelMax').textContent = 'of ' + cfg.maxDark + ' pixels';
+  document.getElementById('pixelMax').textContent = 'OF ' + cfg.maxDark + ' PIXELS';
   
   document.querySelectorAll('.canvas-btn').forEach(btn => {
     btn.classList.toggle('on', parseInt(btn.dataset.size) === size);
@@ -243,7 +392,7 @@ window.toggleAdvanced = function() {
 }
 
 window.toggleIsolate = function() {
-  if (!removeBackgroundFn) return; // Can't toggle if library not loaded
+  if (!removeBackgroundFn) return;
   
   isolateCharacter = !isolateCharacter;
   document.getElementById('isolateBtn').classList.toggle('on', isolateCharacter);
@@ -262,7 +411,7 @@ async function isolateSubject() {
   if (!srcImageData || isIsolating || !removeBackgroundFn) return;
   
   isIsolating = true;
-  document.getElementById('isolateStatus').textContent = '⏳ Isolating character... (first time may take 30s)';
+  document.getElementById('isolateStatus').textContent = '⏳ ISOLATING...';
   document.getElementById('isolateBtn').style.opacity = '0.5';
   
   try {
@@ -280,13 +429,13 @@ async function isolateSubject() {
       isoCanvas.height = img.height;
       const ctx = isoCanvas.getContext('2d');
       
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, img.width, img.height);
       ctx.drawImage(img, 0, 0);
       
       isolatedImageData = ctx.getImageData(0, 0, img.width, img.height);
       isIsolating = false;
-      document.getElementById('isolateStatus').textContent = '✅ Character isolated';
+      document.getElementById('isolateStatus').textContent = '✅ ISOLATED';
       document.getElementById('isolateBtn').style.opacity = '1';
       
       showIsolatedPreview();
@@ -297,7 +446,7 @@ async function isolateSubject() {
   } catch (err) {
     console.error('Isolation failed:', err);
     isIsolating = false;
-    document.getElementById('isolateStatus').textContent = '❌ Isolation failed — using original';
+    document.getElementById('isolateStatus').textContent = '❌ ISOLATION FAILED';
     document.getElementById('isolateBtn').style.opacity = '1';
     isolatedImageData = null;
     hideIsolatedPreview();
@@ -316,7 +465,7 @@ function getScale() {
 
 document.getElementById('fileInput').addEventListener('change', function(e) {
   if (!e.target.files[0]) return;
-  document.getElementById('uploadArea').innerHTML = '<p><span>⏳</span>Processing...</p>';
+  document.getElementById('uploadArea').innerHTML = '<p><span>⏳</span>PROCESSING...</p>';
   document.getElementById('uploadArea').classList.add('loading');
   isolatedImageData = null;
   document.getElementById('isolateStatus').textContent = '';
@@ -334,9 +483,14 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
       srcImageData = ctx.getImageData(0, 0, srcW, srcH);
       
       document.getElementById('editor').classList.remove('hidden');
-      document.getElementById('uploadArea').innerHTML = '<p><span>✅</span>' + srcW + '×' + srcH + ' loaded</p>';
+      document.getElementById('uploadArea').innerHTML = '<p><span>✓</span>' + srcW + '×' + srcH + '</p>';
       document.getElementById('uploadArea').classList.remove('loading');
       document.getElementById('uploadArea').style.padding = 'clamp(12px,3vw,16px)';
+      
+      // Hide demo section after upload
+      document.querySelector('.demo-section').style.display = 'none';
+      document.querySelector('.demo-text').style.display = 'none';
+      document.querySelector('.how-it-works').style.display = 'none';
       
       showOriginalPreview();
       
@@ -434,10 +588,10 @@ function process() {
   previewCanvas.height = GRID * SCALE;
   const ctx = previewCanvas.getContext('2d');
   
-  ctx.fillStyle = invert ? '#000' : '#fff';
+  ctx.fillStyle = invert ? '#0f0' : '#000';
   ctx.fillRect(0, 0, GRID * SCALE, GRID * SCALE);
   
-  ctx.fillStyle = invert ? '#fff' : '#000';
+  ctx.fillStyle = invert ? '#000' : '#0f0';
   for (let y = 0; y < GRID; y++) {
     for (let x = 0; x < GRID; x++) {
       if (darkSet.has(y * GRID + x)) {
@@ -447,7 +601,7 @@ function process() {
   }
   
   if (showGrid && GRID <= 64) {
-    ctx.strokeStyle = invert ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
+    ctx.strokeStyle = invert ? 'rgba(0,0,0,0.3)' : 'rgba(0,255,0,0.2)';
     ctx.lineWidth = 0.5;
     for (let i = 0; i <= GRID; i++) {
       ctx.beginPath(); ctx.moveTo(i * SCALE, 0); ctx.lineTo(i * SCALE, GRID * SCALE); ctx.stroke();
@@ -459,8 +613,8 @@ function process() {
   
   const pct = ((darkSet.size / (GRID * GRID)) * 100).toFixed(1);
   const pts = SIZES[GRID].points;
-  const mode = (isolateCharacter && isolatedImageData) ? ' • isolated' : '';
-  document.getElementById('stats').textContent = GRID + '×' + GRID + ' • ' + darkSet.size + '/' + (GRID*GRID) + ' pixels (' + pct + '%) • ' + pts + ' pts' + mode;
+  const mode = (isolateCharacter && isolatedImageData) ? ' • ISOLATED' : '';
+  document.getElementById('stats').textContent = GRID + '×' + GRID + ' • ' + darkSet.size + '/' + (GRID*GRID) + ' PIXELS (' + pct + '%) • ' + pts + ' PTS' + mode;
 }
 
 let resizeTimer;
@@ -510,15 +664,15 @@ window.downloadPNG = function() {
   const c = document.createElement('canvas');
   c.width = GRID; c.height = GRID;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = invert ? '#000' : '#fff';
+  ctx.fillStyle = invert ? '#000' : '#0f0';
   ctx.fillRect(0, 0, GRID, GRID);
-  ctx.fillStyle = invert ? '#fff' : '#000';
+  ctx.fillStyle = invert ? '#0f0' : '#000';
   const pixels = getProcessPixels();
   for (let i = 0; i < Math.min(darkBudget, pixels.length); i++) {
     ctx.fillRect(pixels[i].gx, pixels[i].gy, 1, 1);
   }
   const a = document.createElement('a');
-  a.download = 'pixel-' + GRID + 'x' + GRID + '.png';
+  a.download = 'punkforge-' + GRID + 'x' + GRID + '.png';
   a.href = c.toDataURL('image/png');
   a.click();
 }
@@ -530,20 +684,21 @@ window.downloadScaled = function() {
   c.width = GRID * S; c.height = GRID * S;
   const ctx = c.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = invert ? '#000' : '#fff';
+  ctx.fillStyle = invert ? '#000' : '#0f0';
   ctx.fillRect(0, 0, GRID * S, GRID * S);
-  ctx.fillStyle = invert ? '#fff' : '#000';
+  ctx.fillStyle = invert ? '#0f0' : '#000';
   const pixels = getProcessPixels();
   for (let i = 0; i < Math.min(darkBudget, pixels.length); i++) {
     ctx.fillRect(pixels[i].gx * S, pixels[i].gy * S, S, S);
   }
   const a = document.createElement('a');
-  a.download = 'pixel-' + GRID + 'x' + GRID + '-8x.png';
+  a.download = 'punkforge-' + GRID + 'x' + GRID + '-8x.png';
   a.href = c.toDataURL('image/png');
   a.click();
 }
 
-// Load background removal library on page load
+// Initialize
+drawDemo();
 loadBackgroundRemoval();
 </script>
 <script>
