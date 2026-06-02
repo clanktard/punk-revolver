@@ -16,6 +16,8 @@ h1{font-size:clamp(20px,5vw,28px);margin-bottom:4px;color:#0f0;text-align:center
 .upload{border:2px dashed #444;border-radius:16px;padding:clamp(24px,6vw,40px);text-align:center;cursor:pointer;margin-bottom:clamp(16px,4vw,24px);transition:all .2s}
 .upload:hover{border-color:#0f0;background:rgba(0,255,0,0.03)}
 .upload:active{border-color:#0f0;background:rgba(0,255,0,0.08)}
+.upload.loading{border-color:#0f0;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 .upload p{color:#888;font-size:clamp(14px,3.5vw,18px)}
 .upload p span{color:#0f0;font-size:clamp(28px,7vw,36px);display:block;margin-bottom:8px}
 canvas{display:none}
@@ -172,6 +174,7 @@ function getScale() {
 document.getElementById('fileInput').addEventListener('change', function(e) {
   if (!e.target.files[0]) return;
   document.getElementById('uploadArea').innerHTML = '<p><span>⏳</span>Processing...</p>';
+  document.getElementById('uploadArea').classList.add('loading');
   const reader = new FileReader();
   reader.onload = function(ev) {
     const img = new Image();
@@ -184,6 +187,7 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
       srcImageData = ctx.getImageData(0, 0, srcW, srcH);
       document.getElementById('editor').classList.remove('hidden');
       document.getElementById('uploadArea').innerHTML = '<p><span>✅</span>' + srcW + '×' + srcH + ' loaded</p>';
+      document.getElementById('uploadArea').classList.remove('loading');
       document.getElementById('uploadArea').style.padding = 'clamp(12px,3vw,16px)';
       process();
     };
