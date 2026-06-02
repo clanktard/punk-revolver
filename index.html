@@ -41,7 +41,11 @@ input[type=range]{width:100%;height:clamp(32px,8vw,40px);cursor:pointer;accent-c
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:clamp(24px,6vw,32px);height:clamp(24px,6vw,32px);background:#0f0;border-radius:50%;cursor:pointer;border:3px solid #111}
 input[type=range]::-moz-range-thumb{width:clamp(24px,6vw,32px);height:clamp(24px,6vw,32px);background:#0f0;border-radius:50%;cursor:pointer;border:3px solid #111}
 .preview-section{text-align:center;margin:clamp(12px,3vw,16px) 0}
-.preview canvas{display:inline-block;image-rendering:pixelated;image-rendering:crisp-edges;border:2px solid #333;border-radius:8px;max-width:100%;height:auto}
+.preview-container{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.preview-box{flex:1;min-width:120px;max-width:200px}
+.preview-box img,.preview-box canvas{width:100%;height:auto;border:2px solid #333;border-radius:8px;display:block}
+.preview-box.pixelated canvas{image-rendering:pixelated;image-rendering:crisp-edges}
+.preview-label{font-size:clamp(10px,2.5vw,12px);color:#666;margin-top:4px;text-align:center}
 .stats{font-size:clamp(12px,3vw,14px);color:#888;margin:clamp(8px,2vw,12px) 0;text-align:center}
 .download-btns{display:grid;grid-template-columns:1fr 1fr;gap:clamp(8px,2vw,12px);margin-top:auto;padding-top:clamp(12px,3vw,16px)}
 .dl-btn{background:#0f0;color:#000;border:none;border-radius:12px;padding:clamp(14px,3.5vw,18px);font-family:monospace;font-weight:bold;cursor:pointer;font-size:clamp(14px,3.5vw,18px);transition:all .2s}
@@ -65,6 +69,8 @@ input[type=range]::-moz-range-thumb{width:clamp(24px,6vw,32px);height:clamp(24px
 .isolate-btn .label{font-size:clamp(12px,3vw,14px);color:#fff;font-weight:bold;display:block}
 .isolate-btn .desc{font-size:clamp(10px,2.5vw,12px);color:#888;margin-top:2px;display:block}
 .isolate-status{font-size:clamp(11px,2.5vw,13px);color:#0f0;text-align:center;margin:8px 0;min-height:1.5em}
+.new-upload{background:#222;color:#0f0;border:2px solid #0f0;border-radius:12px;padding:clamp(10px,2.5vw,14px);font-family:monospace;font-weight:bold;cursor:pointer;font-size:clamp(12px,3vw,14px);transition:all .2s;margin-bottom:clamp(12px,3vw,16px);width:100%}
+.new-upload:active{transform:scale(0.95)}
 </style>
 </head><body>
 <h1>⬛ PIXELATE</h1>
@@ -76,6 +82,26 @@ input[type=range]::-moz-range-thumb{width:clamp(24px,6vw,32px);height:clamp(24px
 <input type="file" id="fileInput" accept="image/*" style="display:none">
 
 <div id="editor" class="editor hidden">
+  <button class="new-upload" onclick="document.getElementById('fileInput').click()">📷 New Image</button>
+
+  <div class="section">
+    <div class="section-title">Preview</div>
+    <div class="preview-container" id="previewContainer">
+      <div class="preview-box" id="originalPreview">
+        <img id="originalImg" src="" alt="Original">
+        <div class="preview-label">Original</div>
+      </div>
+      <div class="preview-box" id="isolatedPreview" style="display:none">
+        <img id="isolatedImg" src="" alt="Isolated">
+        <div class="preview-label">Isolated</div>
+      </div>
+      <div class="preview-box pixelated" id="pixelatedPreview">
+        <canvas id="previewCanvas"></canvas>
+        <div class="preview-label">Pixelated</div>
+      </div>
+    </div>
+  </div>
+
   <div class="section">
     <div class="section-title">Canvas Size</div>
     <div class="canvas-btns">
@@ -117,10 +143,7 @@ input[type=range]::-moz-range-thumb{width:clamp(24px,6vw,32px);height:clamp(24px
     </div>
   </div>
 
-  <div class="preview-section">
-    <div class="stats" id="stats">24×24 • 120/576 pixels (20.8%) • 50 pts</div>
-    <div id="preview"></div>
-  </div>
+  <div class="stats" id="stats">24×24 • 120/576 pixels (20.8%) • 50 pts</div>
 
   <div class="advanced-toggle">
     <button onclick="toggleAdvanced()">⚙ Advanced Options</button>
@@ -163,7 +186,26 @@ const SIZES = {
   128: { maxDark: 16384, defaultDark: 2000, points: 2000 }
 };
 
-// Make functions global
+// Show original preview
+function showOriginalPreview() {
+  const c = document.getElementById('srcCanvas');
+  const dataUrl = c.toDataURL('image/png');
+  document.getElementById('originalImg').src = dataUrl;
+}
+
+// Show isolated preview
+function showIsolatedPreview() {
+  const c = document.getElementById('isolatedCanvas');
+  const dataUrl = c.toDataURL('image/png');
+  document.getElementById('isolatedImg').src = dataUrl;
+  document.getElementById('isolatedPreview').style.display = 'block';
+}
+
+// Hide isolated preview
+function hideIsolatedPreview() {
+  document.getElementById('isolatedPreview').style.display = 'none';
+}
+
 window.setGridSize = function(size) {
   GRID = size;
   const cfg = SIZES[size];
@@ -190,8 +232,10 @@ window.toggleIsolate = function() {
   document.getElementById('isolateBtn').classList.toggle('on', isolateCharacter);
   
   if (isolateCharacter && srcImageData && !isolatedImageData) {
-    // Run isolation if turning on and not done yet
     isolateSubject();
+  } else if (!isolateCharacter) {
+    hideIsolatedPreview();
+    process();
   } else {
     process();
   }
@@ -205,14 +249,11 @@ async function isolateSubject() {
   document.getElementById('isolateBtn').style.opacity = '0.5';
   
   try {
-    // Get the source image as a blob
     const c = document.getElementById('srcCanvas');
     const blob = await new Promise(resolve => c.toBlob(resolve, 'image/png'));
     
-    // Run background removal
     const resultBlob = await removeBackground(blob);
     
-    // Draw the result to isolated canvas
     const img = new Image();
     const objUrl = URL.createObjectURL(resultBlob);
     img.onload = function() {
@@ -222,11 +263,8 @@ async function isolateSubject() {
       isoCanvas.height = img.height;
       const ctx = isoCanvas.getContext('2d');
       
-      // Draw white background first
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, img.width, img.height);
-      
-      // Draw the isolated subject on top
       ctx.drawImage(img, 0, 0);
       
       isolatedImageData = ctx.getImageData(0, 0, img.width, img.height);
@@ -234,6 +272,7 @@ async function isolateSubject() {
       document.getElementById('isolateStatus').textContent = '✅ Character isolated';
       document.getElementById('isolateBtn').style.opacity = '1';
       
+      showIsolatedPreview();
       process();
     };
     img.src = objUrl;
@@ -244,12 +283,13 @@ async function isolateSubject() {
     document.getElementById('isolateStatus').textContent = '❌ Isolation failed — using original';
     document.getElementById('isolateBtn').style.opacity = '1';
     isolatedImageData = null;
+    hideIsolatedPreview();
     process();
   }
 }
 
 function getScale() {
-  const container = document.querySelector('.preview-section');
+  const container = document.getElementById('previewCanvas').parentElement;
   if (!container) return 12;
   const maxW = container.clientWidth - 4;
   if (GRID <= 24) return Math.max(4, Math.min(20, Math.floor(maxW / GRID)));
@@ -261,8 +301,9 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
   if (!e.target.files[0]) return;
   document.getElementById('uploadArea').innerHTML = '<p><span>⏳</span>Processing...</p>';
   document.getElementById('uploadArea').classList.add('loading');
-  isolatedImageData = null; // Reset isolation
+  isolatedImageData = null;
   document.getElementById('isolateStatus').textContent = '';
+  hideIsolatedPreview();
   
   const reader = new FileReader();
   reader.onload = function(ev) {
@@ -274,12 +315,14 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
       const ctx = c.getContext('2d');
       ctx.drawImage(img, 0, 0);
       srcImageData = ctx.getImageData(0, 0, srcW, srcH);
+      
       document.getElementById('editor').classList.remove('hidden');
       document.getElementById('uploadArea').innerHTML = '<p><span>✅</span>' + srcW + '×' + srcH + ' loaded</p>';
       document.getElementById('uploadArea').classList.remove('loading');
       document.getElementById('uploadArea').style.padding = 'clamp(12px,3vw,16px)';
       
-      // Auto-isolate if enabled
+      showOriginalPreview();
+      
       if (isolateCharacter) {
         await isolateSubject();
       } else {
@@ -321,12 +364,10 @@ window.toggleGrid = function() {
 function process() {
   if (!srcImageData) return;
   
-  // Use isolated image if available and enabled
   const activeData = (isolateCharacter && isolatedImageData) ? isolatedImageData : srcImageData;
   const activeW = activeData.width;
   const activeH = activeData.height;
   
-  // Step 1: Auto-crop to subject
   let minX = activeW, minY = activeH, maxX = 0, maxY = 0;
   const d = activeData.data;
   for (let y = 0; y < activeH; y++) {
@@ -342,7 +383,6 @@ function process() {
     }
   }
   
-  // Apply crop margin
   minX = Math.max(0, minX - cropMargin);
   minY = Math.max(0, minY - cropMargin);
   maxX = Math.min(activeW - 1, maxX + cropMargin);
@@ -351,7 +391,6 @@ function process() {
   const cropW = maxX - minX + 1;
   const cropH = maxY - minY + 1;
   
-  // Step 2: Downsample to GRID×GRID (nearest neighbor)
   const pixels = [];
   for (let gy = 0; gy < GRID; gy++) {
     for (let gx = 0; gx < GRID; gx++) {
@@ -365,7 +404,6 @@ function process() {
     }
   }
   
-  // Step 3: Sort by darkness, pick top N
   pixels.sort((a, b) => a.gray - b.gray);
   const darkSet = new Set();
   const limit = Math.min(darkBudget, pixels.length);
@@ -373,9 +411,8 @@ function process() {
     darkSet.add(pixels[i].gy * GRID + pixels[i].gx);
   }
   
-  // Step 4: Render
   const SCALE = getScale();
-  const previewCanvas = document.createElement('canvas');
+  const previewCanvas = document.getElementById('previewCanvas');
   previewCanvas.width = GRID * SCALE;
   previewCanvas.height = GRID * SCALE;
   const ctx = previewCanvas.getContext('2d');
@@ -401,8 +438,7 @@ function process() {
     }
   }
   
-  document.getElementById('preview').innerHTML = '';
-  document.getElementById('preview').appendChild(previewCanvas);
+  previewCanvas.style.display = 'block';
   
   const pct = ((darkSet.size / (GRID * GRID)) * 100).toFixed(1);
   const pts = SIZES[GRID].points;
