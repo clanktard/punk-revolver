@@ -16,10 +16,10 @@ h1{font-size:clamp(20px,5vw,28px);margin-bottom:4px;color:#0f0;text-align:center
 .upload{border:2px dashed #444;border-radius:16px;padding:clamp(24px,6vw,40px);text-align:center;cursor:pointer;margin-bottom:clamp(16px,4vw,24px);transition:all .2s}
 .upload:hover{border-color:#0f0;background:rgba(0,255,0,0.03)}
 .upload:active{border-color:#0f0;background:rgba(0,255,0,0.08)}
-.upload.loading{border-color:#0f0;animation:pulse 1.5s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 .upload p{color:#888;font-size:clamp(14px,3.5vw,18px)}
 .upload p span{color:#0f0;font-size:clamp(28px,7vw,36px);display:block;margin-bottom:8px}
+.upload.loading{border-color:#0f0;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 canvas{display:none}
 .editor{flex:1;display:flex;flex-direction:column}
 .hidden{display:none}
@@ -58,6 +58,13 @@ input[type=range]::-moz-range-thumb{width:clamp(24px,6vw,32px);height:clamp(24px
 .adv-row{display:flex;gap:clamp(6px,2vw,12px);margin-top:clamp(8px,2vw,12px)}
 .adv-toggle{background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 12px;font-family:monospace;cursor:pointer;font-size:clamp(11px,2.5vw,13px);transition:all .2s;flex:1;text-align:center}
 .adv-toggle.on{background:#0f0;color:#000;border-color:#0f0}
+.isolate-btn{background:#1a1a1a;border:2px solid #333;border-radius:12px;padding:clamp(12px,3vw,16px);text-align:center;cursor:pointer;transition:all .2s;margin-bottom:clamp(12px,3vw,16px)}
+.isolate-btn:hover{border-color:#0f0;background:#0a1a0a}
+.isolate-btn.on{border-color:#0f0;background:#0a1a0a;box-shadow:0 0 20px rgba(0,255,0,0.2)}
+.isolate-btn .icon{font-size:24px;display:block;margin-bottom:4px}
+.isolate-btn .label{font-size:clamp(12px,3vw,14px);color:#fff;font-weight:bold;display:block}
+.isolate-btn .desc{font-size:clamp(10px,2.5vw,12px);color:#888;margin-top:2px;display:block}
+.isolate-status{font-size:clamp(11px,2.5vw,13px);color:#0f0;text-align:center;margin:8px 0;min-height:1.5em}
 </style>
 </head><body>
 <h1>⬛ PIXELATE</h1>
@@ -88,6 +95,15 @@ input[type=range]::-moz-range-thumb{width:clamp(24px,6vw,32px);height:clamp(24px
         <span class="canvas-label">Ultra</span>
       </div>
     </div>
+  </div>
+
+  <div class="section">
+    <div class="isolate-btn on" id="isolateBtn" onclick="toggleIsolate()">
+      <span class="icon">✂️</span>
+      <span class="label">Isolate Character</span>
+      <span class="desc">Remove background, keep only the subject</span>
+    </div>
+    <div class="isolate-status" id="isolateStatus"></div>
   </div>
 
   <div class="section">
@@ -129,11 +145,17 @@ input[type=range]::-moz-range-thumb{width:clamp(24px,6vw,32px);height:clamp(24px
 </div>
 
 <canvas id="srcCanvas"></canvas>
+<canvas id="isolatedCanvas"></canvas>
 
-<script>
+<script type="module">
+import { removeBackground } from 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm';
+
 let GRID = 24;
 let darkBudget = 120, contrast = 1.5, cropMargin = 1, invert = false, showGrid = false;
+let isolateCharacter = true;
 let srcImageData = null, srcW = 0, srcH = 0;
+let isolatedImageData = null;
+let isIsolating = false;
 
 const SIZES = {
   24: { maxDark: 576, defaultDark: 120, points: 50 },
@@ -141,7 +163,8 @@ const SIZES = {
   128: { maxDark: 16384, defaultDark: 2000, points: 2000 }
 };
 
-function setGridSize(size) {
+// Make functions global
+window.setGridSize = function(size) {
   GRID = size;
   const cfg = SIZES[size];
   
@@ -158,8 +181,69 @@ function setGridSize(size) {
   process();
 }
 
-function toggleAdvanced() {
+window.toggleAdvanced = function() {
   document.getElementById('advanced').classList.toggle('hidden');
+}
+
+window.toggleIsolate = function() {
+  isolateCharacter = !isolateCharacter;
+  document.getElementById('isolateBtn').classList.toggle('on', isolateCharacter);
+  
+  if (isolateCharacter && srcImageData && !isolatedImageData) {
+    // Run isolation if turning on and not done yet
+    isolateSubject();
+  } else {
+    process();
+  }
+}
+
+async function isolateSubject() {
+  if (!srcImageData || isIsolating) return;
+  
+  isIsolating = true;
+  document.getElementById('isolateStatus').textContent = '⏳ Isolating character... (first time may take 30s)';
+  document.getElementById('isolateBtn').style.opacity = '0.5';
+  
+  try {
+    // Get the source image as a blob
+    const c = document.getElementById('srcCanvas');
+    const blob = await new Promise(resolve => c.toBlob(resolve, 'image/png'));
+    
+    // Run background removal
+    const resultBlob = await removeBackground(blob);
+    
+    // Draw the result to isolated canvas
+    const img = new Image();
+    img.onload = function() {
+      const isoCanvas = document.getElementById('isolatedCanvas');
+      isoCanvas.width = img.width;
+      isoCanvas.height = img.height;
+      const ctx = isoCanvas.getContext('2d');
+      
+      // Draw white background first
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, img.width, img.height);
+      
+      // Draw the isolated subject on top
+      ctx.drawImage(img, 0, 0);
+      
+      isolatedImageData = ctx.getImageData(0, 0, img.width, img.height);
+      isIsolating = false;
+      document.getElementById('isolateStatus').textContent = '✅ Character isolated';
+      document.getElementById('isolateBtn').style.opacity = '1';
+      
+      process();
+    };
+    img.src = URL.createObjectURL(resultBlob);
+    
+  } catch (err) {
+    console.error('Isolation failed:', err);
+    isIsolating = false;
+    document.getElementById('isolateStatus').textContent = '❌ Isolation failed — using original';
+    document.getElementById('isolateBtn').style.opacity = '1';
+    isolatedImageData = null;
+    process();
+  }
 }
 
 function getScale() {
@@ -175,10 +259,13 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
   if (!e.target.files[0]) return;
   document.getElementById('uploadArea').innerHTML = '<p><span>⏳</span>Processing...</p>';
   document.getElementById('uploadArea').classList.add('loading');
+  isolatedImageData = null; // Reset isolation
+  document.getElementById('isolateStatus').textContent = '';
+  
   const reader = new FileReader();
   reader.onload = function(ev) {
     const img = new Image();
-    img.onload = function() {
+    img.onload = async function() {
       srcW = img.width; srcH = img.height;
       const c = document.getElementById('srcCanvas');
       c.width = srcW; c.height = srcH;
@@ -189,7 +276,13 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
       document.getElementById('uploadArea').innerHTML = '<p><span>✅</span>' + srcW + '×' + srcH + ' loaded</p>';
       document.getElementById('uploadArea').classList.remove('loading');
       document.getElementById('uploadArea').style.padding = 'clamp(12px,3vw,16px)';
-      process();
+      
+      // Auto-isolate if enabled
+      if (isolateCharacter) {
+        await isolateSubject();
+      } else {
+        process();
+      }
     };
     img.src = ev.target.result;
   };
@@ -212,12 +305,12 @@ document.getElementById('cropSlider').addEventListener('input', function() {
   process();
 });
 
-function toggleInvert() {
+window.toggleInvert = function() {
   invert = !invert;
   document.getElementById('invertBtn').classList.toggle('on', invert);
   process();
 }
-function toggleGrid() {
+window.toggleGrid = function() {
   showGrid = !showGrid;
   document.getElementById('gridBtn').classList.toggle('on', showGrid);
   process();
@@ -226,11 +319,17 @@ function toggleGrid() {
 function process() {
   if (!srcImageData) return;
   
-  let minX = srcW, minY = srcH, maxX = 0, maxY = 0;
-  const d = srcImageData.data;
-  for (let y = 0; y < srcH; y++) {
-    for (let x = 0; x < srcW; x++) {
-      const i = (y * srcW + x) * 4;
+  // Use isolated image if available and enabled
+  const activeData = (isolateCharacter && isolatedImageData) ? isolatedImageData : srcImageData;
+  const activeW = activeData.width;
+  const activeH = activeData.height;
+  
+  // Step 1: Auto-crop to subject
+  let minX = activeW, minY = activeH, maxX = 0, maxY = 0;
+  const d = activeData.data;
+  for (let y = 0; y < activeH; y++) {
+    for (let x = 0; x < activeW; x++) {
+      const i = (y * activeW + x) * 4;
       const gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
       if (gray < 200) {
         if (x < minX) minX = x;
@@ -241,20 +340,22 @@ function process() {
     }
   }
   
+  // Apply crop margin
   minX = Math.max(0, minX - cropMargin);
   minY = Math.max(0, minY - cropMargin);
-  maxX = Math.min(srcW - 1, maxX + cropMargin);
-  maxY = Math.min(srcH - 1, maxY + cropMargin);
+  maxX = Math.min(activeW - 1, maxX + cropMargin);
+  maxY = Math.min(activeH - 1, maxY + cropMargin);
   
   const cropW = maxX - minX + 1;
   const cropH = maxY - minY + 1;
   
+  // Step 2: Downsample to GRID×GRID (nearest neighbor)
   const pixels = [];
   for (let gy = 0; gy < GRID; gy++) {
     for (let gx = 0; gx < GRID; gx++) {
       const srcX = minX + Math.floor(gx * cropW / GRID);
       const srcY = minY + Math.floor(gy * cropH / GRID);
-      const i = (srcY * srcW + srcX) * 4;
+      const i = (srcY * activeW + srcX) * 4;
       let gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
       gray = ((gray / 255 - 0.5) * contrast + 0.5) * 255;
       gray = Math.max(0, Math.min(255, gray));
@@ -262,6 +363,7 @@ function process() {
     }
   }
   
+  // Step 3: Sort by darkness, pick top N
   pixels.sort((a, b) => a.gray - b.gray);
   const darkSet = new Set();
   const limit = Math.min(darkBudget, pixels.length);
@@ -269,6 +371,7 @@ function process() {
     darkSet.add(pixels[i].gy * GRID + pixels[i].gx);
   }
   
+  // Step 4: Render
   const SCALE = getScale();
   const previewCanvas = document.createElement('canvas');
   previewCanvas.width = GRID * SCALE;
@@ -301,7 +404,8 @@ function process() {
   
   const pct = ((darkSet.size / (GRID * GRID)) * 100).toFixed(1);
   const pts = SIZES[GRID].points;
-  document.getElementById('stats').textContent = GRID + '×' + GRID + ' • ' + darkSet.size + '/' + (GRID*GRID) + ' pixels (' + pct + '%) • ' + pts + ' pts';
+  const mode = (isolateCharacter && isolatedImageData) ? ' • isolated' : '';
+  document.getElementById('stats').textContent = GRID + '×' + GRID + ' • ' + darkSet.size + '/' + (GRID*GRID) + ' pixels (' + pct + '%) • ' + pts + ' pts' + mode;
 }
 
 let resizeTimer;
@@ -311,11 +415,15 @@ window.addEventListener('resize', function() {
 });
 
 function getProcessPixels() {
-  const d = srcImageData.data;
-  let minX = srcW, minY = srcH, maxX = 0, maxY = 0;
-  for (let y = 0; y < srcH; y++) {
-    for (let x = 0; x < srcW; x++) {
-      const i = (y * srcW + x) * 4;
+  const activeData = (isolateCharacter && isolatedImageData) ? isolatedImageData : srcImageData;
+  const activeW = activeData.width;
+  const activeH = activeData.height;
+  const d = activeData.data;
+  
+  let minX = activeW, minY = activeH, maxX = 0, maxY = 0;
+  for (let y = 0; y < activeH; y++) {
+    for (let x = 0; x < activeW; x++) {
+      const i = (y * activeW + x) * 4;
       const gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
       if (gray < 200) {
         if (x < minX) minX = x; if (y < minY) minY = y;
@@ -324,14 +432,14 @@ function getProcessPixels() {
     }
   }
   minX = Math.max(0, minX - cropMargin); minY = Math.max(0, minY - cropMargin);
-  maxX = Math.min(srcW - 1, maxX + cropMargin); maxY = Math.min(srcH - 1, maxY + cropMargin);
+  maxX = Math.min(activeW - 1, maxX + cropMargin); maxY = Math.min(activeH - 1, maxY + cropMargin);
   const cropW = maxX - minX + 1, cropH = maxY - minY + 1;
   const pixels = [];
   for (let gy = 0; gy < GRID; gy++) {
     for (let gx = 0; gx < GRID; gx++) {
       const srcX = minX + Math.floor(gx * cropW / GRID);
       const srcY = minY + Math.floor(gy * cropH / GRID);
-      const i = (srcY * srcW + srcX) * 4;
+      const i = (srcY * activeW + srcX) * 4;
       let gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
       gray = ((gray / 255 - 0.5) * contrast + 0.5) * 255;
       gray = Math.max(0, Math.min(255, gray));
@@ -342,7 +450,7 @@ function getProcessPixels() {
   return pixels;
 }
 
-function downloadPNG() {
+window.downloadPNG = function() {
   if (!srcImageData) return;
   const c = document.createElement('canvas');
   c.width = GRID; c.height = GRID;
@@ -360,7 +468,7 @@ function downloadPNG() {
   a.click();
 }
 
-function downloadScaled() {
+window.downloadScaled = function() {
   if (!srcImageData) return;
   const S = 8;
   const c = document.createElement('canvas');
