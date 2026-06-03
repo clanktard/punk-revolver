@@ -778,20 +778,79 @@ function getProcessPixels() {
   minX = Math.max(0, minX - cropMargin); minY = Math.max(0, minY - cropMargin);
   maxX = Math.min(activeW - 1, maxX + cropMargin); maxY = Math.min(activeH - 1, maxY + cropMargin);
   const cropW = maxX - minX + 1, cropH = maxY - minY + 1;
-  const pixels = [];
+
+  // v5: Shape-first scoring — same algorithm as process()
+  const sampleW = Math.max(1, Math.floor(cropW / GRID));
+  const sampleH = Math.max(1, Math.floor(cropH / GRID));
+  const cellScores = [];
+
   for (let gy = 0; gy < GRID; gy++) {
     for (let gx = 0; gx < GRID; gx++) {
-      const srcX = minX + Math.floor(gx * cropW / GRID);
-      const srcY = minY + Math.floor(gy * cropH / GRID);
-      const i = (srcY * activeW + srcX) * 4;
-      let gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
-      gray = ((gray / 255 - 0.5) * contrast + 0.5) * 255;
-      gray = Math.max(0, Math.min(255, gray));
-      pixels.push({ gx, gy, gray });
+      const xStart = minX + Math.floor(gx * cropW / GRID);
+      const yStart = minY + Math.floor(gy * cropH / GRID);
+      const xEnd = Math.min(activeW, xStart + sampleW);
+      const yEnd = Math.min(activeH, yStart + sampleH);
+
+      let sum = 0, count = 0, darkCount = 0;
+      let edgeSum = 0;
+      let rSum = 0, gSum = 0, bSum = 0;
+      const cellW = xEnd - xStart;
+      const cellH = yEnd - yStart;
+      const grayBuf = [];
+
+      for (let sy = yStart; sy < yEnd; sy++) {
+        for (let sx = xStart; sx < xEnd; sx++) {
+          const i = (sy * activeW + sx) * 4;
+          let gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+          gray = ((gray / 255 - 0.5) * contrast + 0.5) * 255;
+          gray = Math.max(0, Math.min(255, gray));
+          grayBuf.push(gray);
+          sum += gray;
+          count++;
+          if (gray < 128) darkCount++;
+          rSum += d[i]; gSum += d[i+1]; bSum += d[i+2];
+        }
+      }
+
+      if (cellW >= 3 && cellH >= 3) {
+        for (let cy = 1; cy < cellH - 1; cy++) {
+          for (let cx = 1; cx < cellW - 1; cx++) {
+            const gxK = -grayBuf[(cy-1)*cellW+(cx-1)] + grayBuf[(cy-1)*cellW+(cx+1)]
+                      - 2*grayBuf[cy*cellW+(cx-1)] + 2*grayBuf[cy*cellW+(cx+1)]
+                      - grayBuf[(cy+1)*cellW+(cx-1)] + grayBuf[(cy+1)*cellW+(cx+1)];
+            const gyK = -grayBuf[(cy-1)*cellW+(cx-1)] - 2*grayBuf[(cy-1)*cellW+cx] - grayBuf[(cy-1)*cellW+(cx+1)]
+                      + grayBuf[(cy+1)*cellW+(cx-1)] + 2*grayBuf[(cy+1)*cellW+cx] + grayBuf[(cy+1)*cellW+(cx+1)];
+            edgeSum += Math.sqrt(gxK*gxK + gyK*gyK);
+          }
+        }
+      }
+
+      const meanR = count > 0 ? rSum / count : 0;
+      const meanG = count > 0 ? gSum / count : 0;
+      const meanB = count > 0 ? bSum / count : 0;
+      let colorVar = 0;
+      for (let sy = yStart; sy < yEnd; sy++) {
+        for (let sx = xStart; sx < xEnd; sx++) {
+          const i = (sy * activeW + sx) * 4;
+          const dr = d[i] - meanR, dg = d[i+1] - meanG, db = d[i+2] - meanB;
+          colorVar += dr*dr + dg*dg + db*db;
+        }
+      }
+      colorVar = count > 0 ? colorVar / count : 0;
+
+      const meanGray = count > 0 ? sum / count : 255;
+      const darkRatio = count > 0 ? darkCount / count : 0;
+      const edgeDensity = edgeSum / (count || 1);
+      const normalizedVar = Math.sqrt(colorVar) / 255;
+      const darkBoost = darkRatio > 0.2 ? (edgeDensity / 100) * 0.3 + normalizedVar * 0.2 : 0;
+      const shapeScore = darkRatio * 0.7 + darkBoost;
+
+      cellScores.push({ gx, gy, gray: meanGray, shapeScore });
     }
   }
-  pixels.sort((a, b) => a.gray - b.gray);
-  return pixels;
+
+  cellScores.sort((a, b) => b.shapeScore - a.shapeScore);
+  return cellScores.filter(c => c.shapeScore >= 0.05);
 }
 
 window.downloadPNG = function() {
