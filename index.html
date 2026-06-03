@@ -675,10 +675,11 @@ function process() {
       const edgeDensity = edgeSum / (count || 1);
       const normalizedVar = Math.sqrt(colorVar) / 255; // 0-1 range
 
-      // Shape score: edges + variance + darkness, with edges weighted most
-      // Flat/dark areas with no edges = low score (dead color)
-      // Edgy areas with variance = high score (shape + attributes)
-      const shapeScore = (edgeDensity / 100) * 0.5 + normalizedVar * 0.3 + darkRatio * 0.2;
+      // Shape score: darkness is primary (it IS the subject)
+      // Edges + variance BOOST existing dark cells, but don't create new ones
+      // This prevents gradient backgrounds from being treated as subject
+      const darkBoost = darkRatio > 0.2 ? (edgeDensity / 100) * 0.3 + normalizedVar * 0.2 : 0;
+      const shapeScore = darkRatio * 0.7 + darkBoost;
 
       cellScores.push({ gx, gy, mean: meanGray, darkRatio, edgeDensity, colorVar: normalizedVar, shapeScore });
     }
