@@ -603,24 +603,45 @@ function process() {
   const cropW = maxX - minX + 1;
   const cropH = maxY - minY + 1;
   
-  const pixels = [];
+  // v4: Region sampling + darkRatio gating
+  const cellScores = [];
+  const sampleW = Math.max(1, Math.floor(cropW / GRID));
+  const sampleH = Math.max(1, Math.floor(cropH / GRID));
+  
   for (let gy = 0; gy < GRID; gy++) {
     for (let gx = 0; gx < GRID; gx++) {
-      const srcX = minX + Math.floor(gx * cropW / GRID);
-      const srcY = minY + Math.floor(gy * cropH / GRID);
-      const i = (srcY * activeW + srcX) * 4;
-      let gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
-      gray = ((gray / 255 - 0.5) * contrast + 0.5) * 255;
-      gray = Math.max(0, Math.min(255, gray));
-      pixels.push({ gx, gy, gray });
+      const xStart = minX + Math.floor(gx * cropW / GRID);
+      const yStart = minY + Math.floor(gy * cropH / GRID);
+      const xEnd = Math.min(activeW, xStart + sampleW);
+      const yEnd = Math.min(activeH, yStart + sampleH);
+      
+      let sum = 0, count = 0, darkCount = 0;
+      for (let sy = yStart; sy < yEnd; sy++) {
+        for (let sx = xStart; sx < xEnd; sx++) {
+          const i = (sy * activeW + sx) * 4;
+          let gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+          gray = ((gray / 255 - 0.5) * contrast + 0.5) * 255;
+          gray = Math.max(0, Math.min(255, gray));
+          sum += gray;
+          count++;
+          if (gray < 128) darkCount++;
+        }
+      }
+      
+      const meanGray = count > 0 ? sum / count : 255;
+      const darkRatio = count > 0 ? darkCount / count : 0;
+      cellScores.push({ gx, gy, mean: meanGray, darkRatio });
     }
   }
   
-  pixels.sort((a, b) => a.gray - b.gray);
+  // Sort by darkRatio (most subject first), fill only subject cells
+  cellScores.sort((a, b) => b.darkRatio - a.darkRatio);
   const darkSet = new Set();
-  const limit = Math.min(darkBudget, pixels.length);
-  for (let i = 0; i < limit; i++) {
-    darkSet.add(pixels[i].gy * GRID + pixels[i].gx);
+  const darkThreshold = 0.3;
+  for (let i = 0; i < cellScores.length && darkSet.size < darkBudget; i++) {
+    if (cellScores[i].darkRatio >= darkThreshold) {
+      darkSet.add(cellScores[i].gy * GRID + cellScores[i].gx);
+    }
   }
   
   const SCALE = getScale();
