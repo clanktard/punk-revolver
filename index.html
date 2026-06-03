@@ -603,43 +603,93 @@ function process() {
   const cropW = maxX - minX + 1;
   const cropH = maxY - minY + 1;
   
-  // v4: Region sampling + darkRatio gating
+  // v5: Shape-first scoring — edge detection + color variance
+  // Ignores flat/dead color, prioritizes contours and defining features
   const cellScores = [];
   const sampleW = Math.max(1, Math.floor(cropW / GRID));
   const sampleH = Math.max(1, Math.floor(cropH / GRID));
-  
+
   for (let gy = 0; gy < GRID; gy++) {
     for (let gx = 0; gx < GRID; gx++) {
       const xStart = minX + Math.floor(gx * cropW / GRID);
       const yStart = minY + Math.floor(gy * cropH / GRID);
       const xEnd = Math.min(activeW, xStart + sampleW);
       const yEnd = Math.min(activeH, yStart + sampleH);
-      
+
       let sum = 0, count = 0, darkCount = 0;
+      let edgeSum = 0;
+      let rSum = 0, gSum = 0, bSum = 0;
+
+      // Build mini grayscale buffer for Sobel
+      const cellW = xEnd - xStart;
+      const cellH = yEnd - yStart;
+      const grayBuf = [];
+
       for (let sy = yStart; sy < yEnd; sy++) {
         for (let sx = xStart; sx < xEnd; sx++) {
           const i = (sy * activeW + sx) * 4;
           let gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
           gray = ((gray / 255 - 0.5) * contrast + 0.5) * 255;
           gray = Math.max(0, Math.min(255, gray));
+          grayBuf.push(gray);
           sum += gray;
           count++;
           if (gray < 128) darkCount++;
+          rSum += d[i]; gSum += d[i+1]; bSum += d[i+2];
         }
       }
-      
+
+      // Sobel edge detection on the cell's grayscale data
+      if (cellW >= 3 && cellH >= 3) {
+        for (let cy = 1; cy < cellH - 1; cy++) {
+          for (let cx = 1; cx < cellW - 1; cx++) {
+            const idx = cy * cellW + cx;
+            // Sobel X kernel: [-1 0 1; -2 0 2; -1 0 1]
+            const gx = -grayBuf[(cy-1)*cellW+(cx-1)] + grayBuf[(cy-1)*cellW+(cx+1)]
+                      - 2*grayBuf[cy*cellW+(cx-1)] + 2*grayBuf[cy*cellW+(cx+1)]
+                      - grayBuf[(cy+1)*cellW+(cx-1)] + grayBuf[(cy+1)*cellW+(cx+1)];
+            // Sobel Y kernel: [-1 -2 -1; 0 0 0; 1 2 1]
+            const gy = -grayBuf[(cy-1)*cellW+(cx-1)] - 2*grayBuf[(cy-1)*cellW+cx] - grayBuf[(cy-1)*cellW+(cx+1)]
+                      + grayBuf[(cy+1)*cellW+(cx-1)] + 2*grayBuf[(cy+1)*cellW+cx] + grayBuf[(cy+1)*cellW+(cx+1)];
+            edgeSum += Math.sqrt(gx*gx + gy*gy);
+          }
+        }
+      }
+
+      // Color variance — how much color changes within the cell
+      const meanR = count > 0 ? rSum / count : 0;
+      const meanG = count > 0 ? gSum / count : 0;
+      const meanB = count > 0 ? bSum / count : 0;
+      let colorVar = 0;
+      for (let sy = yStart; sy < yEnd; sy++) {
+        for (let sx = xStart; sx < xEnd; sx++) {
+          const i = (sy * activeW + sx) * 4;
+          const dr = d[i] - meanR, dg = d[i+1] - meanG, db = d[i+2] - meanB;
+          colorVar += dr*dr + dg*dg + db*db;
+        }
+      }
+      colorVar = count > 0 ? colorVar / count : 0;
+
       const meanGray = count > 0 ? sum / count : 255;
       const darkRatio = count > 0 ? darkCount / count : 0;
-      cellScores.push({ gx, gy, mean: meanGray, darkRatio });
+      const edgeDensity = edgeSum / (count || 1);
+      const normalizedVar = Math.sqrt(colorVar) / 255; // 0-1 range
+
+      // Shape score: edges + variance + darkness, with edges weighted most
+      // Flat/dark areas with no edges = low score (dead color)
+      // Edgy areas with variance = high score (shape + attributes)
+      const shapeScore = (edgeDensity / 100) * 0.5 + normalizedVar * 0.3 + darkRatio * 0.2;
+
+      cellScores.push({ gx, gy, mean: meanGray, darkRatio, edgeDensity, colorVar: normalizedVar, shapeScore });
     }
   }
-  
-  // Sort by darkRatio (most subject first), fill only subject cells
-  cellScores.sort((a, b) => b.darkRatio - a.darkRatio);
+
+  // Sort by shapeScore (most defining features first), fill up to budget
+  cellScores.sort((a, b) => b.shapeScore - a.shapeScore);
   const darkSet = new Set();
-  const darkThreshold = 0.3;
+  const shapeThreshold = 0.05; // Skip cells with near-zero shape score (dead color)
   for (let i = 0; i < cellScores.length && darkSet.size < darkBudget; i++) {
-    if (cellScores[i].darkRatio >= darkThreshold) {
+    if (cellScores[i].shapeScore >= shapeThreshold) {
       darkSet.add(cellScores[i].gy * GRID + cellScores[i].gx);
     }
   }
