@@ -1,35 +1,59 @@
-# ⬛ PIXELATE
+# 🔫 PUNK REVOLVER
 
-Upload any image. Get crisp 24×24 pixel art. No servers, no tracking, everything runs in your browser.
+**Every photo is a bullet. Every pixel is a hit.**
+
+Upload any messy photo. We isolate the character. You get crisp pixel art. Mint onchain.
+
+🔗 **Live:** https://clanktard.github.io/punk-revolver/
+
+## What It Does
+
+1. **LOAD** — any photo, messy or clean
+2. **AIM** — we isolate the subject (remove background)
+3. **FIRE** — crisp black & white pixel art
+4. **MINT** — save onchain via Normie Punk Evolve
 
 ## Features
-- 📷 Upload any image (JPG, PNG, WebP, GIF)
-- 🎚️ Dark Points slider — control how many pixels are "on"
-- 🎨 Contrast adjustment
-- ✂️ Auto-crop to subject
-- 🔄 Invert mode (white-on-black or black-on-white)
-- 📐 Grid overlay toggle
-- ⬇️ Export as 24×24 PNG or 8× scaled (192×192)
-- 📱 Responsive — works on any screen size
-- ⚡ PWA — installable, works offline
-- 🟣 Farcaster Mini App — one-click launch from Farcaster
+
+- ✂️ Auto-isolate characters from any photo
+- 📐 Three canvas sizes: 24×24 (50pts), 64×64 (400pts), 128×128 (2000pts)
+- 🎨 Monochrome black & white (Normie Punk standard)
+- 📱 PWA installable (Add to Home Screen)
+- 🟣 Farcaster Mini App ready
+- ⚡ Zero dependencies, runs in any browser
+- 🔫 Animated demo with pixel skull
+
+## Normie Punk Evolve Compatible
+
+| Canvas | Points | Pixels |
+|--------|--------|--------|
+| 24×24 | 50 pts | 576 |
+| 64×64 | 400 pts | 4,096 |
+| 128×128 | 2,000 pts | 16,384 |
+
+## How It Works
+
+1. Upload any photo (with text, backgrounds, noise)
+2. Background removal isolates the character
+3. Auto-crops to just the subject
+4. Converts to B&W pixel art (black on white)
+5. Download as PNG (native or 8× scaled)
 
 ## Use It
-**Live:** https://clanktard.github.io/pixelate-app
+
+**Live:** https://clanktard.github.io/punk-revolver/
 
 Or just open `index.html` in any browser. No build step. No dependencies.
 
 ## Install as App
+
 - **iOS/Android:** Open in browser → Share → Add to Home Screen
 - **Desktop:** Open in Chrome → Click install icon in address bar
 
-## How It Works
-1. Upload an image
-2. It auto-crops to the subject
-3. Downsamples to a 24×24 grid
-4. Picks the N darkest pixels (adjustable via slider)
-5. Renders as black-on-white pixel art
-6. Export as PNG
-
 ## License
-MIT. Do whatever you want with it.
+
+MIT. Pull the trigger.
+
+---
+
+*Punk Revolver • Normie Punk Evolve • Base Chain*

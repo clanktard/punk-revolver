@@ -1,11 +1,11 @@
 {
-  "name": "PIXELATE",
-  "short_name": "Pixelate",
-  "description": "Image to pixel art converter. Upload any image, get crisp 24×24 pixel art.",
+  "name": "Punk Revolver",
+  "short_name": "PunkRevolver",
+  "description": "Every photo is a bullet. Every pixel is a hit. Upload any image, get crisp pixel art for onchain minting.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#111111",
-  "theme_color": "#00ff00",
+  "background_color": "#000000",
+  "theme_color": "#ffffff",
   "orientation": "any",
   "categories": ["utilities", "graphics", "photo"],
   "icons": [
@@ -25,10 +25,10 @@
   "screenshots": [],
   "shortcuts": [
     {
-      "name": "Convert Image",
-      "short_name": "Convert",
+      "name": "Pull The Trigger",
+      "short_name": "Shoot",
       "url": "/",
-      "description": "Upload an image and pixelate it"
+      "description": "Upload an image and fire"
     }
   ]
 }

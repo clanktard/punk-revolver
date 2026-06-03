@@ -1,16 +1,16 @@
 {
   "accountAssociation": {
-    "header": "eyJmaWQiOjAsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCJ9",
-    "payload": "eyJkb21haW4iOiJwaXhlbGF0ZS1hcHAuZ2l0aHViLmlvIn0",
+    "header": "eyJmaW...MCJ9",
+    "payload": "eyJkb2...vIn0",
     "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
   },
   "miniapp": {
     "version": "1",
-    "name": "PIXELATE",
-    "homeUrl": "https://clanktard.github.io/pixelate-app",
-    "iconUrl": "https://clanktard.github.io/pixelate-app/icons/icon-512.png",
-    "buttonTitle": "Pixelate",
-    "splashImageUrl": "https://clanktard.github.io/pixelate-app/icons/icon-512.png",
-    "splashBackgroundColor": "#111111"
+    "name": "Punk Revolver",
+    "homeUrl": "https://clanktard.github.io/punk-revolver",
+    "iconUrl": "https://clanktard.github.io/punk-revolver/icons/icon-512.png",
+    "buttonTitle": "Pull The Trigger",
+    "splashImageUrl": "https://clanktard.github.io/punk-revolver/icons/icon-512.png",
+    "splashBackgroundColor": "#000000"
   }
 }
